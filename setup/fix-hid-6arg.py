@@ -36,12 +36,18 @@ def patch_text(text):
 
 
 def find_sources(explicit=None):
+    """Return (c_files, roots).
+
+    Debian ships the DKMS tree in the upstream layout, so the sources are a
+    level down in driver/ rather than at the top - hence the recursive walk.
+    """
     if explicit:
-        return [explicit]
+        return [explicit], []
+    roots = sorted(glob.glob("/usr/src/openrazer-driver-*"))
     found = []
-    for src in sorted(glob.glob("/usr/src/openrazer-driver-*")):
-        found.extend(sorted(glob.glob(os.path.join(src, "*.c"))))
-    return found
+    for root in roots:
+        found.extend(sorted(glob.glob(os.path.join(root, "**", "*.c"), recursive=True)))
+    return found, roots
 
 
 def main():
@@ -51,10 +57,18 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    sources = find_sources(args.file)
+    sources, roots = find_sources(args.file)
     if not sources:
-        print("no OpenRazer driver source under /usr/src - is openrazer-driver-dkms installed?")
+        if not roots:
+            print("no /usr/src/openrazer-driver-* directory.")
+            print("Is openrazer-driver-dkms installed? Try: dpkg -L openrazer-driver-dkms | grep /usr/src")
+        else:
+            print("found %s but no .c files under it:" % ", ".join(roots))
+            for root in roots:
+                for dirpath, _, names in os.walk(root):
+                    print("   %s: %s" % (dirpath, ", ".join(sorted(names)[:8]) or "(empty)"))
         return 1
+    print("scanning %d source file(s)" % len(sources))
 
     touched = 0
     for path in sources:
