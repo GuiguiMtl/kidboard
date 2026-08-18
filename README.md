@@ -40,7 +40,8 @@ every kernel `postinst`, so this also leaves `linux-image-*` and `linux-headers-
 unconfigured. **Do not reboot in that state.**
 
 ```bash
-bash setup/recover.sh     # patches the driver, then dpkg --configure -a
+bash setup/recover.sh              # patches hid_report_raw_event, then dpkg --configure -a
+bash setup/use-upstream-driver.sh  # if it then fails on hrtimer_init (it will on 6.18)
 ```
 
 `setup/install.sh` applies the same fix automatically. Details and the
