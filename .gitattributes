@@ -1,0 +1,6 @@
+# The Pi is the target. CRLF would break shebangs and systemd units.
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.service text eol=lf
+*.json text eol=lf

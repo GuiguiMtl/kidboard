@@ -1,0 +1,28 @@
+[Unit]
+Description=Kidboard - reactive lights on a Razer keyboard
+# The daemon owns the device; starting before it just means a retry loop.
+After=openrazer-daemon.service multi-user.target
+Wants=openrazer-daemon.service
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+SupplementaryGroups=plugdev input
+WorkingDirectory=@REPO@
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m kidboard.main
+
+# If this process dies the keyboard grab is released and keystrokes reach the
+# TTY. Restarting hard and fast is a safety property, not just uptime.
+Restart=always
+RestartSec=2
+
+# openrazer-daemon is a user-session service; give it a bus to find.
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/@UID@/bus
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
