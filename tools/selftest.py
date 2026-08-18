@@ -88,6 +88,38 @@ def layout_roundtrip(tmp_path="layouts/.selftest.local.json"):
           and loaded.unpressable == original.unpressable)
 
 
+def reconnect_backs_off():
+    """An unplugged keyboard must not retry (or log) on every dropped frame -
+    that journal lives on an SD card."""
+    from kidboard.device import Keyboard
+
+    kbd = Keyboard.__new__(Keyboard)          # no hardware, no daemon
+    kbd._next_retry = 0.0
+    kbd._retry_delay = Keyboard.RETRY_MIN
+    kbd._offline = False
+    attempts = []
+
+    def always_fails():
+        attempts.append(time.monotonic())
+        raise RuntimeError("unplugged")
+
+    kbd.connect = always_fails
+
+    # 0.4 s of dropped frames at 30 fps: 12 draw failures.
+    deadline = time.monotonic() + 0.4
+    frames = 0
+    while time.monotonic() < deadline:
+        kbd._reconnect()
+        frames += 1
+        time.sleep(1 / 30.0)
+
+    check("reconnect backs off", len(attempts) < frames / 2,
+          "%d attempts across %d failed frames" % (len(attempts), frames))
+    check("backoff widens", kbd._retry_delay > Keyboard.RETRY_MIN,
+          "delay stayed at %.2f" % kbd._retry_delay)
+    check("outage reported once", kbd._offline)
+
+
 def engine_runs():
     layout = synthetic_layout()
     keyboard = FakeKeyboard(render=False)
@@ -141,6 +173,9 @@ def main():
 
     print("\nlayout")
     layout_roundtrip()
+
+    print("\nresilience")
+    reconnect_backs_off()
 
     print("\nengine")
     engine_runs()

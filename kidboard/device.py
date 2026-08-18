@@ -4,6 +4,7 @@ Everything the rest of the code needs from the keyboard's LEDs, plus survival
 across `systemctl restart openrazer-daemon` and USB replug.
 """
 import logging
+import time
 
 log = logging.getLogger(__name__)
 
@@ -15,11 +16,17 @@ class NoDeviceError(RuntimeError):
 class Keyboard:
     """A Razer keyboard with an addressable matrix."""
 
+    RETRY_MIN = 0.5
+    RETRY_MAX = 5.0
+
     def __init__(self, brightness=70, name_hint=None):
         self._brightness = brightness
         self._name_hint = name_hint
         self._device = None
         self._fx = None
+        self._next_retry = 0.0
+        self._retry_delay = self.RETRY_MIN
+        self._offline = False
         self.rows = 0
         self.cols = 0
         self.name = "<disconnected>"
@@ -64,11 +71,29 @@ class Keyboard:
         return self
 
     def _reconnect(self):
+        """Backed-off reconnect.
+
+        A frame fails every 33 ms while the keyboard is unplugged. Retrying and
+        logging on each one buries the journal - and on a Pi that journal is an
+        SD card. Retry on a widening interval instead, and say so exactly once
+        per outage."""
+        now = time.monotonic()
+        if now < self._next_retry:
+            return False
+        self._next_retry = now + self._retry_delay
+        self._retry_delay = min(self._retry_delay * 2, self.RETRY_MAX)
         try:
             self.connect()
+            self._retry_delay = self.RETRY_MIN
+            if self._offline:
+                log.info("keyboard is back")
+                self._offline = False
             return True
         except Exception as exc:
-            log.warning("reconnect failed: %s", exc)
+            if not self._offline:
+                log.warning("keyboard went away (%s); retrying quietly", exc)
+                self._offline = True
+            log.debug("reconnect failed: %s", exc)
             return False
 
     # ------------------------------------------------------------------ output
@@ -90,7 +115,7 @@ class Keyboard:
             self._fx.draw()
             return True
         except Exception as exc:
-            log.warning("draw failed (%s); reconnecting", exc)
+            log.debug("draw failed: %s", exc)
             return self._reconnect()
 
     def reactive(self, color=(0, 255, 255), speed=2):
