@@ -29,22 +29,43 @@ echo "kernel=$KREL  headers=$HEADERS_PKG"
 
 log "Installing packages"
 sudo apt-get update
-sudo apt-get install -y \
-  "$HEADERS_PKG" dkms build-essential \
-  openrazer-driver-dkms openrazer-daemon python3-openrazer \
-  python3-evdev python3-numpy python3-dbus python3-gi
+# Allowed to fail: on kernels >= 6.18.33 the DKMS build breaks on the changed
+# hid_report_raw_event signature, and that failure also blocks the kernel
+# packages from configuring. We detect and repair it below rather than abort.
+PACKAGES="$HEADERS_PKG dkms build-essential
+  openrazer-driver-dkms openrazer-daemon python3-openrazer
+  python3-evdev python3-numpy python3-dbus python3-gi"
+# shellcheck disable=SC2086
+sudo apt-get install -y $PACKAGES || true
 
 # DKMS only links against headers it can find. Verify before trusting the build.
 if [[ ! -e "/lib/modules/$KREL/build" ]]; then
-  die "/lib/modules/$KREL/build is missing — headers did not match the running kernel.
+  die "/lib/modules/$KREL/build is missing - headers did not match the running kernel.
      Try: sudo apt full-upgrade && sudo reboot, then re-run this script."
 fi
 
 log "Checking the razerkbd module built"
 if ! dkms status 2>/dev/null | grep -qi 'openrazer.*installed'; then
-  warn "DKMS does not report openrazer as installed. Falling back to a source build."
-  warn "See setup/README-fallback.md if this also fails."
+  warn "driver did not build - applying the hid_report_raw_event fix"
+  sudo python3 "$REPO_DIR/setup/fix-hid-6arg.py"
+  sudo dpkg --configure -a || true
+  sudo apt-get -f install -y || true
+fi
+
+if ! dkms status 2>/dev/null | grep -qi 'openrazer.*installed'; then
   dkms status || true
+  die "driver still will not build. Run: bash setup/recover.sh
+     If that fails too, read setup/README-fallback.md and
+     /var/lib/dkms/openrazer-driver/*/build/make.log"
+fi
+
+# A failed DKMS hook also leaves kernel packages unconfigured. Never leave the
+# user to discover that at the next reboot.
+unconfigured="$(dpkg -l | awk '$1 ~ /^i[^i]/ {print $2}' || true)"
+if [[ -n "$unconfigured" ]]; then
+  die "these packages are not configured - do NOT reboot yet:
+     $unconfigured
+     Run: bash setup/recover.sh"
 fi
 
 # ---------------------------------------------------------------- groups

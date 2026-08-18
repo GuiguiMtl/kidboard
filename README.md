@@ -32,6 +32,20 @@ Boot / Auto Login → **Console**. This is the backstop: if the service dies the
 grab is released, and with autologin on that means a toddler typing into a live
 shell.
 
+## If setup fails on the driver build
+
+On Raspberry Pi OS with kernel >= 6.18.33, Debian's OpenRazer 3.10.2 does not
+compile: `hid_report_raw_event` gained a sixth argument. The DKMS hook runs from
+every kernel `postinst`, so this also leaves `linux-image-*` and `linux-headers-*`
+unconfigured. **Do not reboot in that state.**
+
+```bash
+bash setup/recover.sh     # patches the driver, then dpkg --configure -a
+```
+
+`setup/install.sh` applies the same fix automatically. Details and the
+build-from-git alternative are in `setup/README-fallback.md`.
+
 ## Bring-up order
 
 Each step gates the next. Do not skip ahead.
