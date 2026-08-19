@@ -27,6 +27,14 @@ from kidboard.keyboard_input import KeyStream
 from kidboard.layout import Layout, load_or_none
 
 AUTOSAVE_EVERY = 8
+
+# A press must be followed by this much silence before the next cell is shown.
+# Razer keyboards report through several event nodes and kidboard grabs all of
+# them, so one physical press can arrive more than once. Without a settle, the
+# duplicate lands on the next cell and skips it - which shows up later as keys
+# that were never mapped.
+SETTLE_QUIET = 0.30
+SETTLE_TIMEOUT = 3.0
 HELP = """
   <press a key on the Razer>  map it to the lit cell
   Enter                       no key here (decorative LED or dead cell)
@@ -41,6 +49,18 @@ def draw_single(kbd, buf, cell):
     buf[:] = 0.015                      # faint wash, so the board reads as alive
     buf[cell[0], cell[1]] = (1.0, 1.0, 1.0)
     kbd.draw(buf)
+
+
+def settle(keys):
+    """Drain events until the keyboard has been quiet for SETTLE_QUIET."""
+    deadline = time.monotonic() + SETTLE_TIMEOUT
+    last_seen = time.monotonic()
+    while time.monotonic() < deadline:
+        if keys.poll():
+            last_seen = time.monotonic()
+        elif time.monotonic() - last_seen >= SETTLE_QUIET:
+            return
+        time.sleep(0.01)
 
 
 def stdin_line():
@@ -159,6 +179,10 @@ def main():
                     print(HELP)
                 else:
                     print("  ? unrecognised - '?' for help")
+
+            # Absorb the key-up, any duplicate report of the same press from
+            # another node, and autorepeat, before moving to the next cell.
+            settle(keys)
 
             if rewind:
                 # Step back onto the cell whose answer we just threw away.

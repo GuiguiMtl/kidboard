@@ -88,6 +88,42 @@ def layout_roundtrip(tmp_path="layouts/.selftest.local.json"):
           and loaded.unpressable == original.unpressable)
 
 
+def mapper_settles_after_duplicates():
+    """One press can arrive from several event nodes. The mapper must swallow
+    the extras instead of letting them advance the next cell."""
+    from map_keys import settle, SETTLE_QUIET, SETTLE_TIMEOUT
+
+    class Burst:
+        """Emits n events, then falls silent."""
+
+        def __init__(self, n):
+            self.remaining = n
+
+        def poll(self):
+            if self.remaining > 0:
+                self.remaining -= 1
+                return [KeyEvent(30, "KEY_A", False, time.monotonic(), "/dev/input/event9")]
+            return []
+
+    burst = Burst(4)
+    started = time.monotonic()
+    settle(burst)
+    elapsed = time.monotonic() - started
+    check("settle drains duplicates", burst.remaining == 0)
+    check("settle waits for quiet", elapsed >= SETTLE_QUIET,
+          "returned after %.2fs" % elapsed)
+
+    class Noisy:
+        def poll(self):
+            return [KeyEvent(30, "KEY_A", True, time.monotonic(), "/dev/input/event9")]
+
+    started = time.monotonic()
+    settle(Noisy())
+    elapsed = time.monotonic() - started
+    check("settle cannot hang", elapsed < SETTLE_TIMEOUT + 1.0,
+          "took %.2fs" % elapsed)
+
+
 def draw_skips_unchanged_frames():
     """A draw costs ~48 ms on the V3 Mini. Redrawing an identical frame is the
     single most expensive thing this code can do for no reason."""
@@ -219,6 +255,7 @@ def main():
     layout_roundtrip()
 
     print("\nresilience")
+    mapper_settles_after_duplicates()
     draw_skips_unchanged_frames()
     reconnect_backs_off()
 

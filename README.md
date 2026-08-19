@@ -85,6 +85,27 @@ Switching effects is adult-only: hold **Esc + Enter together for 3 seconds**.
 Far apart on the board and behind a long hold, so palm-slapping will not trip
 it. Also `sudo systemctl kill -s SIGUSR1 kidboard`, or `--effect NAME`.
 
+## If the mapper skips cells
+
+Symptom: a cell lights and immediately advances without you pressing anything,
+and those keys later report `NOT MAPPED` in `verify_layout.py`.
+
+Cause: kidboard grabs every Razer event node on purpose, and more than one node
+can report the same physical key. The duplicate lands on the next cell.
+
+`map_keys.py` now waits for the keyboard to fall silent before advancing, which
+absorbs duplicates, the key-up and autorepeat. To confirm what your hardware is
+actually sending:
+
+```bash
+python3 tools/keydebug.py     # flags any key arriving twice, and from where
+```
+
+Re-running `map_keys.py` resumes and only asks about cells that are still
+unknown, so you do not have to redo the ones that worked. Use `--restart` if
+the existing mapping is too tangled to salvage, and `verify_layout.py` to find
+cells claimed by more than one key.
+
 ## Working on it without hardware
 
 ```bash

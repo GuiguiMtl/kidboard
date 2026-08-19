@@ -20,16 +20,19 @@ RESCAN_INTERVAL = 3.0      # seconds between rediscovery attempts when unplugged
 
 
 class KeyEvent:
-    __slots__ = ("code", "name", "down", "at")
+    __slots__ = ("code", "name", "down", "at", "source")
 
-    def __init__(self, code, name, down, at):
+    def __init__(self, code, name, down, at, source=""):
         self.code = code
         self.name = name
         self.down = down       # True on press, False on release
         self.at = at
+        self.source = source   # which event node reported it; several may
 
     def __repr__(self):
-        return "<KeyEvent %s %s>" % (self.name, "down" if self.down else "up")
+        return "<KeyEvent %s %s%s>" % (
+            self.name, "down" if self.down else "up",
+            " from " + self.source if self.source else "")
 
 
 class KeyStream:
@@ -126,7 +129,7 @@ class KeyStream:
                             if isinstance(name, (list, tuple)):
                                 name = name[0]
                             self._push(KeyEvent(event.code, name, event.value == 1,
-                                                time.monotonic()))
+                                                time.monotonic(), dev.path))
             except OSError as exc:
                 log.warning("input device went away (%s); rescanning", exc)
             finally:
