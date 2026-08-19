@@ -32,10 +32,14 @@ DEVICE_MATCH = os.environ.get("KIDBOARD_DEVICE_MATCH", "razer")
 
 # This keyboard chatters: a single physical press registers several times. It is
 # a known fault of the V3 Mini, not something software caused, so suppress
-# repeat presses of the same key within this many milliseconds. Chatter is
-# typically under 30 ms; a deliberate double-tap of one key is well over 100 ms,
-# even from a toddler. Set 0 to disable and see the raw stream.
-DEBOUNCE_MS = _int("KIDBOARD_DEBOUNCE_MS", 60)
+# repeat presses of the same key within this many milliseconds.
+#
+# 100 ms, set from watching the real board rather than a bench sample - the
+# fault is intermittent and wanders between keys, so short measurements
+# understate it. The cost of erring high is invisible here: nobody types on this
+# thing, and losing a genuine same-key repeat inside 100 ms would not be
+# noticeable in a light toy. Set 0 to disable and see the raw stream.
+DEBOUNCE_MS = _int("KIDBOARD_DEBOUNCE_MS", 100)
 
 # Seconds of no keypresses before the slow breathing sleep effect takes over.
 IDLE_SECONDS = _float("KIDBOARD_IDLE_SECONDS", 300.0)

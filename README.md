@@ -107,7 +107,7 @@ python3 tools/keydebug.py --debounce 60 # check a candidate window
 ```
 
 It prints median/p95/worst repeat gaps and suggests a value. Set it with
-`KIDBOARD_DEBOUNCE_MS` (default 60 ms, `0` disables). Chatter is typically under
+`KIDBOARD_DEBOUNCE_MS` (default 100 ms, `0` disables). Chatter is typically under
 30 ms; a deliberate double-tap of one key is well over 100 ms, so there is a
 wide gap to sit in.
 
@@ -121,8 +121,9 @@ journalctl -u kidboard | grep chatter
 ```
 
 If that stays quiet across a few sessions with her, the window is doing its job.
-If it climbs, raise `KIDBOARD_DEBOUNCE_MS` - at 80 or 100 ms nothing about this
-toy would feel worse.
+The default is already 100 ms, chosen from watching the real board rather than a
+bench run. Raising it further is cheap - nothing about this toy feels worse at
+150 ms - but past that a genuinely failing switch is the more likely story.
 
 `map_keys.py` additionally waits for the keyboard to fall silent before showing
 the next cell. Re-running it resumes and only asks about cells still unknown, so
