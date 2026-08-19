@@ -31,8 +31,9 @@ done
 log "Configuring the packages dpkg left behind"
 # With the source patched, the postinst DKMS hook now succeeds, which lets the
 # kernel packages finish configuring too.
-sudo dpkg --configure -a
-sudo apt-get -f install -y
+# Non-fatal: the verification below reports what actually happened.
+sudo dpkg --configure -a || true
+sudo apt-get -f install -y || true
 
 log "Result"
 dkms status || true

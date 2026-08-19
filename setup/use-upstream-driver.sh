@@ -30,7 +30,20 @@ DEB_VER="$(basename "$SRC_DIR" | sed 's/^openrazer-driver-//')"
 echo "   $SRC_DIR  (version $DEB_VER)"
 
 log "Build dependencies"
-sudo apt-get install -y git dkms build-essential
+# Careful: any apt-get install also retries the packages dpkg left unconfigured,
+# which rebuilds from the source we are about to replace and fails. That failure
+# is expected here and must not abort the script - so only call apt if something
+# is genuinely missing, and tolerate a non-zero exit.
+missing=()
+command -v git   >/dev/null 2>&1 || missing+=(git)
+command -v dkms  >/dev/null 2>&1 || missing+=(dkms)
+command -v gcc   >/dev/null 2>&1 || missing+=(build-essential)
+if [[ ${#missing[@]} -gt 0 ]]; then
+  echo "   installing: ${missing[*]}"
+  sudo apt-get install -y "${missing[@]}" || warn "apt reported errors - expected while openrazer is unconfigured, continuing"
+else
+  echo "   git, dkms and a compiler are already present"
+fi
 
 log "Fetching upstream openrazer"
 if [[ -d "$CLONE_DIR/.git" ]]; then
@@ -60,12 +73,23 @@ sudo make -C "$CLONE_DIR" setup_dkms "DKMS_VER=$DEB_VER"
 sudo sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"$DEB_VER\"/" "$SRC_DIR/dkms.conf"
 grep -H PACKAGE_VERSION "$SRC_DIR/dkms.conf"
 
+# Prove the new sources are actually in place before building. Both markers are
+# upstream-only: compat.c does not exist in 3.10.2, and hrtimer_setup is the fix
+# for the failure that sent us here. Without this check a silently skipped step
+# just reappears as the same old build error.
+[[ -f "$SRC_DIR/driver/compat.c" ]] || die "upstream sources did not install - $SRC_DIR/driver/compat.c is missing"
+grep -q "hrtimer_setup" "$SRC_DIR/driver/razermouse_driver.c" || die "upstream sources look wrong - no hrtimer_setup in razermouse_driver.c"
+grep -q "LINUX_HID_REPORT_RAW_EVENT_WITH_BUFFER_SIZE" "$SRC_DIR/driver/razerkbd_driver.c" || die "upstream sources look wrong - no hid_report_raw_event gate in razerkbd_driver.c"
+echo "   upstream markers present: compat.c, hrtimer_setup, hid_report_raw_event gate"
+
 log "Clearing stale DKMS state"
 sudo dkms remove "openrazer-driver/$DEB_VER" --all >/dev/null 2>&1 || true
 
 log "Building, and letting dpkg finish what it started"
-sudo dpkg --configure -a
-sudo apt-get -f install -y
+# Non-fatal on purpose: if the build still fails we want the diagnosis below,
+# not a bare 'set -e' abort with no explanation.
+sudo dpkg --configure -a || true
+sudo apt-get -f install -y || true
 
 log "Result"
 dkms status || true
