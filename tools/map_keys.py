@@ -29,10 +29,11 @@ from kidboard.layout import Layout, load_or_none
 AUTOSAVE_EVERY = 8
 
 # A press must be followed by this much silence before the next cell is shown.
-# Razer keyboards report through several event nodes and kidboard grabs all of
-# them, so one physical press can arrive more than once. Without a settle, the
-# duplicate lands on the next cell and skips it - which shows up later as keys
-# that were never mapped.
+# KeyStream already debounces chatter, but only within its window; a bounce that
+# lands past it would advance the next cell and skip it, which shows up later as
+# keys that were never mapped. Elsewhere a stray press just means an extra
+# flash - here it silently corrupts the mapping, so this second layer earns its
+# keep. It also absorbs the key-up, which is deliberately never debounced.
 SETTLE_QUIET = 0.30
 SETTLE_TIMEOUT = 3.0
 HELP = """

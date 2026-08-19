@@ -69,8 +69,6 @@ def press(kbd, layout):
     buf = np.zeros((kbd.rows, kbd.cols, 3), dtype=np.float32)
     confirmed = set()
     unmapped = set()
-    last_seen = {}
-    DEDUPE = 0.05      # one press can be reported by several nodes
 
     print("\npress keys on the Razer keyboard. Enter in this terminal to finish.\n")
     with KeyStream(match=config.DEVICE_MATCH) as keys:
@@ -84,10 +82,6 @@ def press(kbd, layout):
             for event in keys.poll():
                 if not event.down:
                     continue
-                previous = last_seen.get(event.code)
-                if previous is not None and event.at - previous < DEDUPE:
-                    continue           # same press, second node
-                last_seen[event.code] = event.at
                 cell = layout.cell(event.code)
                 if cell is None:
                     unmapped.add(event.name)
