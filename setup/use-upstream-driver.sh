@@ -21,6 +21,10 @@ log()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m !  %s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31m !! %s\033[0m\n' "$*" >&2; exit 1; }
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_REV="$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null || echo not-a-git-checkout)"
+printf '\033[2mkidboard %s @ %s\033[0m\n' "$(basename "${BASH_SOURCE[0]}")" "$REPO_REV"
+
 CLONE_DIR="${CLONE_DIR:-$HOME/openrazer-upstream}"
 
 log "Locating the packaged driver source"

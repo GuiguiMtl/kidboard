@@ -13,6 +13,9 @@ warn() { printf '\033[1;33m !  %s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31m !! %s\033[0m\n' "$*" >&2; exit 1; }
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_REV="$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null || echo not-a-git-checkout)"
+printf '\033[2mkidboard %s @ %s\033[0m\n' "$(basename "${BASH_SOURCE[0]}")" "$REPO_REV"
+
 
 log "Packages currently not configured"
 # 'iU' / 'iF' in the first two columns means unpacked-but-not-configured.
