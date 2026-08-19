@@ -111,6 +111,19 @@ It prints median/p95/worst repeat gaps and suggests a value. Set it with
 30 ms; a deliberate double-tap of one key is well over 100 ms, so there is a
 wide gap to sit in.
 
+**The fault is intermittent and moves between keys**, so a short session can
+show nothing and prove nothing - do not read a clean run as "fixed", and do not
+lower the window on the strength of one. The useful sample is real use: the
+running service reports what the debounce caught every 10 minutes.
+
+```bash
+journalctl -u kidboard | grep chatter
+```
+
+If that stays quiet across a few sessions with her, the window is doing its job.
+If it climbs, raise `KIDBOARD_DEBOUNCE_MS` - at 80 or 100 ms nothing about this
+toy would feel worse.
+
 `map_keys.py` additionally waits for the keyboard to fall silent before showing
 the next cell. Re-running it resumes and only asks about cells still unknown, so
 a partly-broken mapping does not have to be redone from scratch - though

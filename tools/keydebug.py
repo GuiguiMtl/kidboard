@@ -98,9 +98,10 @@ def main():
     print("   median %.0f ms   p95 %.0f ms   worst %.0f ms"
           % (percentile(gaps, 0.5), p95, worst))
 
-    # Clear the worst observed bounce, with headroom, but stay well under a
-    # deliberate double-tap so real fast presses are never eaten.
-    recommended = int(min(150, max(40, worst * 1.5 + 10)))
+    # Clear the worst observed bounce with headroom, but never go below the
+    # configured default: the fault is intermittent, so a short sample almost
+    # certainly has not seen the worst case.
+    recommended = int(min(150, max(config.DEBOUNCE_MS, worst * 1.5 + 10)))
     print("\nSuggested:  KIDBOARD_DEBOUNCE_MS=%d" % recommended)
     print("Set it in setup/kidboard.service, or export it to try it out.")
     if worst > 150:

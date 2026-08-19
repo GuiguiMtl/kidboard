@@ -9,6 +9,11 @@ from .effects.sleep import Sleep
 
 log = logging.getLogger(__name__)
 
+# The chatter on this keyboard is intermittent and moves between keys, so a
+# short bench session tells you very little. Report what the debounce actually
+# caught during real use instead, where the sample is hours rather than seconds.
+CHATTER_REPORT_INTERVAL = 600.0
+
 
 class Engine:
     def __init__(self, keyboard, keystream, layout, effect_names,
@@ -39,6 +44,8 @@ class Engine:
         # Set from a signal handler; consumed in the loop so we never build an
         # effect from inside a signal context.
         self.switch_requested = False
+        self._chatter_at = time.monotonic()
+        self._chatter_seen = 0
 
     # ------------------------------------------------------------------ effects
     def _make(self, name):
@@ -110,6 +117,21 @@ class Engine:
                 and self.idle_seconds > 0
                 and now - self._last_key_at >= self.idle_seconds):
             self._sleep()
+
+        self._report_chatter(now)
+
+    def _report_chatter(self, now):
+        if now - self._chatter_at < CHATTER_REPORT_INTERVAL:
+            return
+        self._chatter_at = now
+        total = getattr(self.keystream, "suppressed", None)
+        if total is None:
+            return                      # a stream without debounce, e.g. the simulator
+        recent = total - self._chatter_seen
+        self._chatter_seen = total
+        if recent:
+            log.info("debounce suppressed %d chattered press(es) in the last %.0f min "
+                     "(%d since start)", recent, CHATTER_REPORT_INTERVAL / 60.0, total)
 
     def _sleep(self):
         log.info("idle for %.0fs - sleeping", self.idle_seconds)
