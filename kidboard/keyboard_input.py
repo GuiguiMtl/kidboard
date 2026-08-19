@@ -38,8 +38,18 @@ class KeyEvent:
 class KeyStream:
     """Background thread that grabs matching devices and queues key events."""
 
-    def __init__(self, match="razer", maxlen=256):
+    def __init__(self, match="razer", maxlen=256, debounce_ms=None):
+        from . import config
+
         self._match = match.lower()
+        # Hardware debounce. Only presses are filtered - releases pass through
+        # untouched, so a chattering key can never get stuck in the "held"
+        # state that the effect-switch chord depends on.
+        if debounce_ms is None:
+            debounce_ms = config.DEBOUNCE_MS
+        self._debounce = max(0.0, debounce_ms / 1000.0)
+        self._last_down = {}
+        self.suppressed = 0
         self._queue = deque(maxlen=maxlen)   # bounded: a stuck consumer must not eat RAM
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -128,8 +138,15 @@ class KeyStream:
                             name = ecodes.KEY.get(event.code)
                             if isinstance(name, (list, tuple)):
                                 name = name[0]
+                            now = time.monotonic()
+                            if event.value == 1 and self._debounce:
+                                previous = self._last_down.get(event.code)
+                                if previous is not None and now - previous < self._debounce:
+                                    self.suppressed += 1
+                                    continue
+                                self._last_down[event.code] = now
                             self._push(KeyEvent(event.code, name, event.value == 1,
-                                                time.monotonic(), dev.path))
+                                                now, dev.path))
             except OSError as exc:
                 log.warning("input device went away (%s); rescanning", exc)
             finally:

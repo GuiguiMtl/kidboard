@@ -85,26 +85,36 @@ Switching effects is adult-only: hold **Esc + Enter together for 3 seconds**.
 Far apart on the board and behind a long hold, so palm-slapping will not trip
 it. Also `sudo systemctl kill -s SIGUSR1 kidboard`, or `--effect NAME`.
 
-## If the mapper skips cells
+## Keys registering several times
 
-Symptom: a cell lights and immediately advances without you pressing anything,
-and those keys later report `NOT MAPPED` in `verify_layout.py`.
+This keyboard chatters: one physical press registers as several. It is a known
+fault of the BlackWidow V3 Mini - the switch itself, not software. Symptoms:
 
-Cause: kidboard grabs every Razer event node on purpose, and more than one node
-can report the same physical key. The duplicate lands on the next cell.
+- effects re-trigger repeatedly on a single press
+- `map_keys.py` lights a cell and advances without you touching anything, so
+  that cell is never mapped and `verify_layout.py` later calls the key unmapped
 
-`map_keys.py` now waits for the keyboard to fall silent before advancing, which
-absorbs duplicates, the key-up and autorepeat. To confirm what your hardware is
-actually sending:
+kidboard debounces at the source, in `KeyStream`, so every consumer benefits -
+effects, the mapper, and any game added later. Presses inside the window are
+dropped; **releases are never filtered**, because a chattering key that got
+stuck "held" would break the effect-switch chord.
+
+Measure your own hardware rather than trusting the default:
 
 ```bash
-python3 tools/keydebug.py     # flags any key arriving twice, and from where
+python3 tools/keydebug.py               # raw stream; reports repeat intervals
+python3 tools/keydebug.py --debounce 60 # check a candidate window
 ```
 
-Re-running `map_keys.py` resumes and only asks about cells that are still
-unknown, so you do not have to redo the ones that worked. Use `--restart` if
-the existing mapping is too tangled to salvage, and `verify_layout.py` to find
-cells claimed by more than one key.
+It prints median/p95/worst repeat gaps and suggests a value. Set it with
+`KIDBOARD_DEBOUNCE_MS` (default 60 ms, `0` disables). Chatter is typically under
+30 ms; a deliberate double-tap of one key is well over 100 ms, so there is a
+wide gap to sit in.
+
+`map_keys.py` additionally waits for the keyboard to fall silent before showing
+the next cell. Re-running it resumes and only asks about cells still unknown, so
+a partly-broken mapping does not have to be redone from scratch - though
+`--restart` is often quicker than untangling one, at 80 cells.
 
 ## Working on it without hardware
 

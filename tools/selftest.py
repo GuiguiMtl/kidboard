@@ -88,6 +88,61 @@ def layout_roundtrip(tmp_path="layouts/.selftest.local.json"):
           and loaded.unpressable == original.unpressable)
 
 
+def debounce_filters_chatter():
+    """The keyboard registers one press several times. Presses are filtered;
+    releases must not be, or a chattering key gets stuck 'held' and the
+    effect-switch chord breaks."""
+    from kidboard.keyboard_input import KeyStream
+
+    stream = KeyStream.__new__(KeyStream)
+    stream._debounce = 0.060
+    stream._last_down = {}
+    stream.suppressed = 0
+    stream._queue = []
+    stream._lock = _NullLock()
+
+    def feed(code, down, at):
+        """Mirrors the filter in KeyStream._run."""
+        if down and stream._debounce:
+            previous = stream._last_down.get(code)
+            if previous is not None and at - previous < stream._debounce:
+                stream.suppressed += 1
+                return
+            stream._last_down[code] = at
+        stream._queue.append((code, down, at))
+
+    # One press that chatters four times over 25 ms, then the release.
+    for offset in (0.000, 0.008, 0.017, 0.025):
+        feed(30, True, offset)
+    feed(30, False, 0.030)
+
+    downs = [e for e in stream._queue if e[1]]
+    ups = [e for e in stream._queue if not e[1]]
+    check("chatter collapses to one press", len(downs) == 1,
+          "%d presses got through" % len(downs))
+    check("releases are never filtered", len(ups) == 1)
+    check("suppressed count is reported", stream.suppressed == 3,
+          "counted %d" % stream.suppressed)
+
+    # A deliberate second press well after the window must survive.
+    feed(30, True, 0.400)
+    downs = [e for e in stream._queue if e[1]]
+    check("real second press survives", len(downs) == 2,
+          "%d presses" % len(downs))
+
+    # A different key pressed inside the window is unrelated.
+    feed(31, True, 0.405)
+    check("other keys unaffected", any(e[0] == 31 for e in stream._queue))
+
+
+class _NullLock:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
 def mapper_settles_after_duplicates():
     """One press can arrive from several event nodes. The mapper must swallow
     the extras instead of letting them advance the next cell."""
@@ -255,6 +310,7 @@ def main():
     layout_roundtrip()
 
     print("\nresilience")
+    debounce_filters_chatter()
     mapper_settles_after_duplicates()
     draw_skips_unchanged_frames()
     reconnect_backs_off()
