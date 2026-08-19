@@ -21,7 +21,9 @@ from kidboard.engine import Engine
 from kidboard.keyboard_input import KeyEvent
 from kidboard.layout import Layout
 
-ROWS, COLS = 6, 22
+# Defaults match a BlackWidow V3 Mini HyperSpeed. A full-size V3 is 6x22;
+# override with --rows/--cols. Real dimensions are always read from the device.
+ROWS, COLS = 5, 16
 
 
 class FakeKeyboard:
@@ -101,12 +103,14 @@ def main():
     ap.add_argument("--seconds", type=float, default=4.0, help="per effect")
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--rate", type=float, default=6.0, help="keypresses per second")
+    ap.add_argument("--rows", type=int, default=ROWS)
+    ap.add_argument("--cols", type=int, default=COLS)
     ap.add_argument("--headless", action="store_true",
                     help="run the loop without drawing; used as a smoke test")
     args = ap.parse_args()
 
-    layout = synthetic_layout()
-    keyboard = FakeKeyboard(render=not args.headless)
+    layout = synthetic_layout(args.rows, args.cols)
+    keyboard = FakeKeyboard(args.rows, args.cols, render=not args.headless)
     keystream = FakeKeyStream(sorted(layout.key_to_cell), rate=args.rate)
 
     from kidboard import effects as registry

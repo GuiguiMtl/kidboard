@@ -88,6 +88,50 @@ def layout_roundtrip(tmp_path="layouts/.selftest.local.json"):
           and loaded.unpressable == original.unpressable)
 
 
+def draw_skips_unchanged_frames():
+    """A draw costs ~48 ms on the V3 Mini. Redrawing an identical frame is the
+    single most expensive thing this code can do for no reason."""
+    from kidboard.device import Keyboard
+
+    class FakeMatrix:
+        def __setitem__(self, key, value):
+            pass
+
+    class FakeFx:
+        def __init__(self):
+            self.matrix = FakeMatrix()
+            self.draws = 0
+
+        def draw(self):
+            self.draws += 1
+
+    kbd = Keyboard.__new__(Keyboard)
+    kbd.rows, kbd.cols = 5, 16
+    kbd._fx = FakeFx()
+    kbd._last_frame = None
+    kbd._offline = False
+
+    buf = np.zeros((5, 16, 3), dtype=np.float32)
+    buf[2, 3] = (1.0, 0.5, 0.25)
+
+    kbd.draw(buf)
+    kbd.draw(buf)
+    kbd.draw(buf)
+    check("identical frames drawn once", kbd._fx.draws == 1,
+          "%d draws" % kbd._fx.draws)
+
+    buf[0, 0] = (1.0, 1.0, 1.0)
+    kbd.draw(buf)
+    check("changed frame is drawn", kbd._fx.draws == 2,
+          "%d draws" % kbd._fx.draws)
+
+    # Sub-quantisation drift must not count as a change.
+    buf[0, 0] = (1.0, 1.0, 1.0 - 1e-4)
+    kbd.draw(buf)
+    check("sub-1/255 drift ignored", kbd._fx.draws == 2,
+          "%d draws" % kbd._fx.draws)
+
+
 def reconnect_backs_off():
     """An unplugged keyboard must not retry (or log) on every dropped frame -
     that journal lives on an SD card."""
@@ -175,6 +219,7 @@ def main():
     layout_roundtrip()
 
     print("\nresilience")
+    draw_skips_unchanged_frames()
     reconnect_backs_off()
 
     print("\nengine")

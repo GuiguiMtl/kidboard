@@ -11,6 +11,9 @@ Group=@USER@
 SupplementaryGroups=plugdev input
 WorkingDirectory=@REPO@
 Environment=PYTHONUNBUFFERED=1
+# Measured on a V3 Mini HyperSpeed: a full-frame draw costs ~48 ms, so 30 fps
+# is not achievable. Re-check with tools/bench.py if you change hardware.
+Environment=KIDBOARD_FPS=20
 ExecStart=/usr/bin/python3 -m kidboard.main
 
 # If this process dies the keyboard grab is released and keystrokes reach the

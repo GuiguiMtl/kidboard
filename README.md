@@ -4,7 +4,9 @@ A Razer BlackWidow V3 with a broken spacebar, turned into a light toy for a
 toddler. Plugged into a headless Raspberry Pi: she bashes the keys, the board
 reacts, and the keystrokes go **nowhere** — no shell, no TTY, nothing.
 
-The keyboard is a 6x22 grid of addressable LEDs. That is the whole display.
+The keyboard is a grid of addressable LEDs, and that grid is the whole display.
+Dimensions are read from the device at runtime - 5x16 on a BlackWidow V3 Mini
+HyperSpeed, 6x22 on a full-size V3 - so nothing here hardcodes a size.
 
 ## How it works
 
@@ -53,7 +55,7 @@ Each step gates the next. Do not skip ahead.
 
 | Step | Command | Expect |
 |---|---|---|
-| 1. Driver | `python3 tools/detect.py` | `RazerBlackWidowV3`, `6x22`, grabbable nodes |
+| 1. Driver | `python3 tools/detect.py` | the device name, its matrix size, grabbable nodes |
 | 2. Lights | `python3 tools/detect.py --reactive` | keys glow cyan when pressed |
 | 3. Speed | `python3 tools/bench.py` | ≥ 25 fps |
 | 4. Run it | `python3 -m kidboard.main` | board reacts; SSH session stays empty |
@@ -91,7 +93,7 @@ python3 tools/simulate.py --effect ripple    # renders the matrix in the termina
 ```
 
 `tools/simulate.py` swaps in a fake keyboard and a fake toddler, so effects can
-be tuned anywhere.
+be tuned anywhere. It defaults to 5x16; use `--rows`/`--cols` for another board.
 
 ## Deploying from Windows
 
@@ -125,6 +127,6 @@ KIDBOARD_BRIGHTNESS=40 KIDBOARD_FPS=20 python3 -m kidboard.main
 
 ## Later
 
-The 6x22 grid is a real low-res display. Around age 3, `kidboard/effects/` is
+The LED grid is a real low-res display. Around age 3, `kidboard/effects/` is
 where whack-a-key, colour matching and Simon sequences plug in — same interface,
 no rework needed.

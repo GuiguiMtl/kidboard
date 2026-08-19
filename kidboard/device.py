@@ -6,6 +6,8 @@ across `systemctl restart openrazer-daemon` and USB replug.
 import logging
 import time
 
+import numpy as np
+
 log = logging.getLogger(__name__)
 
 
@@ -26,6 +28,7 @@ class Keyboard:
         self._fx = None
         self._next_retry = 0.0
         self._retry_delay = self.RETRY_MIN
+        self._last_frame = None
         self._offline = False
         self.rows = 0
         self.cols = 0
@@ -103,19 +106,32 @@ class Keyboard:
         Returns True if the frame landed. A dropped frame is not worth crashing
         over - the daemon restarts, we pick the device back up next tick.
         """
+        # Quantise first, then skip the write when nothing actually changed.
+        # A draw costs ~48 ms on this hardware, so an idle breathe or a settled
+        # paint canvas would otherwise burn the whole frame budget redrawing an
+        # identical picture. Compare the bytes, not the floats: sub-1/255
+        # drift is invisible and should not count as a change.
+        frame = np.clip(buf, 0.0, 1.0)
+        np.multiply(frame, 255.0, out=frame)
+        np.add(frame, 0.5, out=frame)          # round, do not truncate
+        frame = frame.astype(np.uint8)
+
+        if self._last_frame is not None and np.array_equal(frame, self._last_frame):
+            return True
+
         matrix = self._fx.matrix
         for r in range(self.rows):
-            row = buf[r]
+            row = frame[r]
             for c in range(self.cols):
                 px = row[c]
-                matrix[r, c] = (
-                    _byte(px[0]), _byte(px[1]), _byte(px[2])
-                )
+                matrix[r, c] = (int(px[0]), int(px[1]), int(px[2]))
         try:
             self._fx.draw()
+            self._last_frame = frame
             return True
         except Exception as exc:
             log.debug("draw failed: %s", exc)
+            self._last_frame = None      # force a full write once we are back
             return self._reconnect()
 
     def reactive(self, color=(0, 255, 255), speed=2):
@@ -142,11 +158,3 @@ class Keyboard:
             self._device.brightness = self._brightness
         except Exception as exc:
             log.warning("could not set brightness: %s", exc)
-
-
-def _byte(value):
-    if value <= 0.0:
-        return 0
-    if value >= 1.0:
-        return 255
-    return int(value * 255.0 + 0.5)
