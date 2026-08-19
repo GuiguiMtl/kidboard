@@ -98,7 +98,11 @@ sudo apt-get -f install -y || true
 log "Result"
 dkms status || true
 echo
-if dkms status 2>/dev/null | grep -qi 'openrazer.*installed'; then
+# Capture instead of piping: dkms status can exit non-zero or write to
+# stderr, and under pipefail either turns a successful match into a false
+# negative. That is what reported "still failing" on a build that worked.
+dkms_out="$(dkms status 2>&1 || true)"
+if [[ "$dkms_out" == *openrazer*installed* ]]; then
   echo "   driver built OK"
 else
   die "still failing. Read /var/lib/dkms/openrazer-driver/$DEB_VER/build/make.log

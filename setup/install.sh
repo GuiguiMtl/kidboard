@@ -45,14 +45,22 @@ if [[ ! -e "/lib/modules/$KREL/build" ]]; then
 fi
 
 log "Checking the razerkbd module built"
-if ! dkms status 2>/dev/null | grep -qi 'openrazer.*installed'; then
+# Capture instead of piping: dkms status can exit non-zero or write to
+# stderr, and under pipefail either turns a successful match into a false
+# negative. That is what reported "still failing" on a build that worked.
+dkms_out="$(dkms status 2>&1 || true)"
+if [[ "$dkms_out" != *openrazer*installed* ]]; then
   warn "driver did not build - applying the hid_report_raw_event fix"
   sudo python3 "$REPO_DIR/setup/fix-hid-6arg.py"
   sudo dpkg --configure -a || true
   sudo apt-get -f install -y || true
 fi
 
-if ! dkms status 2>/dev/null | grep -qi 'openrazer.*installed'; then
+# Capture instead of piping: dkms status can exit non-zero or write to
+# stderr, and under pipefail either turns a successful match into a false
+# negative. That is what reported "still failing" on a build that worked.
+dkms_out="$(dkms status 2>&1 || true)"
+if [[ "$dkms_out" != *openrazer*installed* ]]; then
   dkms status || true
   die "driver still will not build. Run: bash setup/recover.sh
      If that fails too, read setup/README-fallback.md and
