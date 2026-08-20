@@ -85,6 +85,22 @@ Switching effects is adult-only: hold **Esc + Enter together for 3 seconds**.
 Far apart on the board and behind a long hold, so palm-slapping will not trip
 it. Also `sudo systemctl kill -s SIGUSR1 kidboard`, or `--effect NAME`.
 
+## Mapping quirks that are not bugs
+
+**Cells with no key.** A V3 Mini is 65%: 5x16 is 80 LEDs but only about 68
+keys, so roughly a dozen cells sit where no key exists. `map_keys.py` has to
+walk all 80 - lighting a cell and seeing what is under it is the only way to
+learn the mapping. Answer `Enter` for an empty cell, or once every real key is
+mapped press `d` and every remaining cell is marked in one go.
+
+**The Fn key cannot be mapped.** Fn is handled inside the keyboard and never
+reaches Linux, so there is no keycode to capture. Answer `Enter` for it.
+
+Holding Fn also makes the firmware light the Fn-layer keys, overriding whatever
+kidboard is drawing. That is the keyboard doing it, not this code, and it stops
+when you let go. It affects the effects at runtime too - if she holds Fn the
+board will briefly show Razer's overlay instead.
+
 ## Keys registering several times
 
 This keyboard chatters: one physical press registers as several. It is a known

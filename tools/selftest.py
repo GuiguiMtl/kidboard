@@ -88,6 +88,25 @@ def layout_roundtrip(tmp_path="layouts/.selftest.local.json"):
           and loaded.unpressable == original.unpressable)
 
 
+def marking_remaining_cells_empty():
+    """The 'd' command in map_keys: once every real key is mapped, whatever is
+    left has no key under it. A 65% board has ~12 such cells out of 80."""
+    layout = Layout(5, 16, {1: (0, 0), 2: (0, 1)}, [(4, 15)], name="t")
+
+    leftover = layout.unmapped_cells()
+    check("unknown cells exclude mapped and known-empty ones",
+          (0, 0) not in leftover and (0, 1) not in leftover and (4, 15) not in leftover)
+
+    for cell in leftover:
+        layout.unpressable.add(cell)
+
+    check("nothing unknown remains", layout.unmapped_cells() == [])
+    check("mapped keys survive", layout.key_to_cell == {1: (0, 0), 2: (0, 1)})
+    check("every cell is accounted for",
+          len(layout.mapped_cells()) + len(layout.unpressable) == 5 * 16,
+          "%d + %d" % (len(layout.mapped_cells()), len(layout.unpressable)))
+
+
 def debounce_filters_chatter():
     """The keyboard registers one press several times. Presses are filtered;
     releases must not be, or a chattering key gets stuck 'held' and the
@@ -310,6 +329,7 @@ def main():
     layout_roundtrip()
 
     print("\nresilience")
+    marking_remaining_cells_empty()
     debounce_filters_chatter()
     mapper_settles_after_duplicates()
     draw_skips_unchanged_frames()

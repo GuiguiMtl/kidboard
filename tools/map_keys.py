@@ -38,11 +38,24 @@ SETTLE_QUIET = 0.30
 SETTLE_TIMEOUT = 3.0
 HELP = """
   <press a key on the Razer>  map it to the lit cell
-  Enter                       no key here (decorative LED or dead cell)
+  Enter                       no key here
+  d                           done - no keys left; mark ALL remaining as no-key
   u                           undo the last answer
   s                           skip this cell, decide later
   q                           save and quit
   ?                           this help
+
+Two things that are normal, not faults:
+
+  Cells with no key. This is a 65% board: 5x16 is 80 cells but there are only
+  about 68 keys, so roughly a dozen LEDs sit where no key exists. Answer Enter,
+  or once every real key is mapped press d and the rest are marked in one go.
+
+  The Fn key. Fn is handled inside the keyboard and never reaches Linux, so
+  there is no keycode to capture - answer Enter for it. Holding Fn also makes
+  the firmware light up the Fn-layer keys, overriding whatever this tool is
+  drawing. If the board suddenly lights up in a pattern you did not ask for,
+  let go of Fn and it returns.
 """
 
 
@@ -151,6 +164,24 @@ def main():
                     history.append((cell, None, "unpressable", None))
                     print("  (no key)")
                     decided = True
+                elif line == "d":
+                    # Every remaining unknown cell has no key under it.
+                    # Covers cells skipped earlier with 's', not just the
+                    # ones ahead of the cursor.
+                    rest = layout.unmapped_cells()
+                    for empty in rest:
+                        layout.unpressable.add(empty)
+                    layout.save(args.layout)
+                    print()
+                    print("  marked %d remaining cell(s) as having no key"
+                          % len(rest))
+                    print("  saved %s: %d keys mapped, %d cells with no key"
+                          % (args.layout, len(layout.key_to_cell),
+                             len(layout.unpressable)))
+                    print()
+                    print("Now check it:  python3 tools/verify_layout.py")
+                    kbd.off()
+                    return 0
                 elif line == "s":
                     history.append((cell, None, "skip", None))
                     print("  (skipped)")
