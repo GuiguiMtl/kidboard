@@ -20,6 +20,27 @@ Input and output are separate paths that never meet. The exclusive grab
 to anyone else. Razer keyboards expose several event nodes and they all emit
 keys, so `kidboard/keyboard_input.py` grabs every one of them.
 
+## Checking the grab actually holds
+
+```bash
+sudo python3 tools/grabtest.py     # with kidboard running, then mash the keys
+```
+
+Note what this does *not* do. Watching your SSH session for stray characters
+proves nothing: SSH input comes from the machine you are typing on, so the Pi's
+local keyboard can never appear there, grabbed or not. That test passes even
+when the grab is completely broken.
+
+What matters is the Pi's own console, tty1, which you cannot see on a headless
+box. `grabtest.py` checks the three things that are real:
+
+- whether a second process can still read the key events (a held grab delivers
+  nothing to anyone else)
+- whether anything reached tty1, by reading `/dev/vcs1`, that console's screen
+  contents, which works with no monitor attached
+- whether console autologin is on, which decides whether a released grab lands
+  on a login prompt or a live shell
+
 ## Setup on the Pi
 
 Raspberry Pi OS 64-bit, Pi 4 or Pi 5.
@@ -58,10 +79,11 @@ Each step gates the next. Do not skip ahead.
 | 1. Driver | `python3 tools/detect.py` | the device name, its matrix size, grabbable nodes |
 | 2. Lights | `python3 tools/detect.py --reactive` | keys glow cyan when pressed |
 | 3. Speed | `python3 tools/bench.py` | ≥ 25 fps |
-| 4. Run it | `python3 -m kidboard.main` | board reacts; SSH session stays empty |
+| 4. Run it | `python3 -m kidboard.main` | board reacts |
 | 5. Mapping | `python3 tools/map_keys.py` | `layouts/blackwidow_v3.json` |
 | 6. Check | `python3 tools/verify_layout.py` | every key lights its own LED |
 | 7. Service | `sudo systemctl start kidboard` | survives reboot |
+| 8. Safety | `sudo python3 tools/grabtest.py` | no leak, no autologin |
 
 Step 2 is the firmware's own reactive effect. It needs none of this code, and it
 keeps working if everything else breaks.
